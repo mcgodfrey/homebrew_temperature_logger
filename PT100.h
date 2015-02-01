@@ -18,7 +18,6 @@ class PT100{
     float get_cal_a();
     float get_cal_b();
 
-
   private:
     int _input_pin;
     float _a;

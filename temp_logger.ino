@@ -56,8 +56,8 @@ void init_sd_card(void);
 
 //state variables
 State_t state = DISP_TEMP;
-float temp_array[4];
-char num_sensors;
+float temp_array[MAX_SENSORS];
+byte num_sensors;
 boolean do_log;
 int meas_interval;
 
@@ -66,15 +66,15 @@ int meas_interval;
 Switch button_up(8, INPUT_PULLUP, LOW, DEBOUNCE_TIME);
 Switch button_down(10, INPUT_PULLUP, LOW, DEBOUNCE_TIME);
 Switch button_select(9, INPUT_PULLUP, LOW, DEBOUNCE_TIME);
-PT100 sensors[4] = {PT100(0), PT100(0), PT100(0), PT100(0)};
+PT100 sensors[MAX_SENSORS] = {PT100(0), PT100(0), PT100(0), PT100(0)};
 Display disp(7, 6, 5, 4, 3, 2);
 SimpleTimer timer;
 
 
 //other variables
-int meas_timer_id;
+byte meas_timer_id;
 int counter=0;
-String filename;
+char filename[20];
 //EEPROM addresses
 #define adr_id 0
 #define adr_num_sensors 1
@@ -128,7 +128,6 @@ void loop() {
   switch (state) {
     case DISP_TEMP:
       if(button_select.pushed()){
-        Serial.println("moving to state: sensor_select");
         disp.sensor_select(num_sensors);
         state = SENSOR_SELECT;
       }
@@ -148,35 +147,26 @@ void loop() {
         }
       }else if(button_select.pushed()){
         //disp.sensor_cal()
-        Serial.println("moving to state: meas_interval_select");
         disp.meas_interval_select(meas_interval);
         state=MEAS_INTERVAL_SELECT;
       }
       break;
     case MEAS_INTERVAL_SELECT:
-      if(button_up.pushed()){
-        if(meas_interval < MAX_INTERVAL){
-          meas_interval+=1000;
-          EEPROM.write(adr_meas_interval, meas_interval>>8);
-          EEPROM.write(adr_meas_interval+1, meas_interval | 0xFF);
-          disp.meas_interval_select(meas_interval);
-          timer.deleteTimer(meas_timer_id);
-          meas_timer_id = timer.setInterval(meas_interval, measure_temps);
-        }
+      if(button_up.pushed() && meas_interval < MAX_INTERVAL){
+        meas_interval+=1000;
+        EEPROM.write(adr_meas_interval, meas_interval>>8);
+        EEPROM.write(adr_meas_interval+1, meas_interval | 0xFF);
+        disp.meas_interval_select(meas_interval);
+        timer.deleteTimer(meas_timer_id);
+        meas_timer_id = timer.setInterval(meas_interval, measure_temps);
       }else if(button_down.pushed()){
-        if(meas_interval > 2000){
-          meas_interval -= 1000;
-        }else{
-          meas_interval = 1000;
-        }
+        meas_interval = meas_interval > 2000 ? meas_interval-1000 : 1000;
         EEPROM.write(adr_meas_interval, meas_interval>>8);
         EEPROM.write(adr_meas_interval+1, meas_interval | 0xFF);
         disp.meas_interval_select(meas_interval);
         timer.deleteTimer(meas_timer_id);
         meas_timer_id = timer.setInterval(meas_interval, measure_temps);
       }else if(button_select.pushed()){
-        //disp.sensor_cal()
-        Serial.println("moving to state: log_select");
         disp.log_selection(do_log);
         state=LOG_SELECT;
       }
@@ -189,7 +179,6 @@ void loop() {
       }else if(button_select.pushed()){
         disp.temps(temp_array, num_sensors);
         state = DISP_TEMP;
-        Serial.println("moving to state: disp_temp");
       }
       break;
     case ERROR:
@@ -232,10 +221,8 @@ void measure_temps(){
 }
 
 void log_temps(){
-  Serial.println("logging temperature to " + filename);
-  char tmp_filename[20];
-  filename.toCharArray(tmp_filename,20);
-  File f = SD.open(tmp_filename, FILE_WRITE);
+  Serial.print("logging temperature to ");Serial.println(filename);
+  File f = SD.open(filename, FILE_WRITE);
   if(f) {
     f.print(counter++);
     for(char a=0; a<num_sensors; a++){
@@ -257,7 +244,7 @@ void log_temps(){
 void init_state_from_eeprom(){
   if(EEPROM.read(adr_id) == EEPROM_ID){
     Serial.println("Found config data in the EEPROM");
-    Serial.println("loading it in now");
+    //Serial.println("loading it in now");
     num_sensors = EEPROM.read(adr_num_sensors);
     do_log = EEPROM.read(adr_do_log);
     meas_interval = (EEPROM.read(adr_meas_interval))<<8  + EEPROM.read(adr_meas_interval+1);
@@ -303,11 +290,8 @@ void init_sd_card(){
     Serial.println("Card failed, or not present");
     return;
   }
-  Serial.println("card found.");
 
-  if(SD.exists("logger")){
-    Serial.println("found logger directory");
-  }else{ 
+  if(!SD.exists("logger")){
     Serial.println("Didn't find logger directory. Creating it now");
     if(SD.mkdir("logger")){
       Serial.println(" Success");
@@ -317,21 +301,20 @@ void init_sd_card(){
     }
   }
 
-  String base = "logger/temp";
   while(1){
-    filename = base + random(999) + ".txt";
-    char tmp_filename[20];
-    filename.toCharArray(tmp_filename,20);
-    if(SD.exists(tmp_filename)){
+    String tmp_filename = "logger/temp" + random(999);
+    tmp_filename += ".txt";
+    tmp_filename.toCharArray(filename,20);
+    if(SD.exists(filename)){
       Serial.println("Filename already exists:");
-      Serial.println("  " + filename);
+      Serial.println("  " + tmp_filename);
     }else{
       break;
     }
   }
 
   Serial.println("card initialised.");
-  Serial.println("Filename = " + filename);
+  Serial.print("Filename = ");Serial.println(filename);
 }
 
 
