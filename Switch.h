@@ -13,7 +13,7 @@ of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Publ
 class Switch
 {
 public:
-  Switch(byte _pin, byte PinMode=INPUT_PULLUP, bool polarity=LOW, int debounceDelay=50, int longPressDelay=400, int doubleClickDelay=250);
+  Switch(byte _pin, byte PinMode=INPUT_PULLUP, bool polarity=LOW, int debounceDelay=50);
   bool poll(); // Returns 1 if switched   
   bool switched(); // will be refreshed by poll()
   bool on(); 
@@ -24,9 +24,9 @@ public:
   
 protected:
   const byte pin; 
-  const int debounceDelay, longPressDelay, doubleClickDelay;
+  const int debounceDelay;
   const bool polarity;
-  bool level, _switched, _longPress, longPressLatch, _doubleClick; 
+  bool level, _switched,; 
 };
  
 #endif
