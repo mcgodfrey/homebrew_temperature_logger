@@ -94,3 +94,11 @@ void Display::error(char *msg){
   lcd.setCursor(0,1);
   lcd.print(msg);
 }
+
+void Display::dump_log(){
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Dump log?");
+  lcd.setCursor(0,1);
+  lcd.print("press up or down");
+}

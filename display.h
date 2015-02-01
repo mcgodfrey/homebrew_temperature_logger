@@ -11,6 +11,7 @@ class Display{
     void meas_interval_select(int meas_interval);
     void sensor_cal(int sensor_no, double a, double b);
     void log_selection(char do_log);
+    void dump_log(void);
     void error(char *msg);
 
   private:

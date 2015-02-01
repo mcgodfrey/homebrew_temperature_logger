@@ -15,17 +15,28 @@
  * Down button = D9
  * Select button = D10
  
+ * 5v/3v3 level shifter on SPI bus.
+ * 50mA max on arduino 3v3 output which I don't think is enough
+ * currently using discrete LM1117 3v3 regulator.
+ *
+ 
  TODO:
- * level shifter for SD
- * SD logging
- * dump SD over serial
+ * fix error in meas_interval read and/or write in eeprom
+ * program will hang if dumping a large file over serial. make it do it in the background?
  * timestamp - rtc module, manually track time, etc.
  * sensor calibration procedure
- * timeout to return to temperature screen
+ * timeout to return to temperature screen - not working properly (at all...)
  * lcd backlight and timeout (ie. auto turn on with button press then timeout after ~5 mins)
  * multiplexer
  * enclosure
- *
+ * file format for SD card
+ * Switch to new smaller sd library
+ * remove eeprom library and save config on sd card instead (save program space)
+ * Use 3v3 regulator on sd breakout board
+ * trim difference amp
+ * indicator LEDs, eg. sd card inserted, taking measurement
+ * 
+ * 
  */
 
 #include <LiquidCrystal.h>
@@ -37,6 +48,8 @@
 #include "SimpleTimer.h"
 
 //definitions
+//300, 600, 1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400, 57600, or 115200
+#define BAUD_RATE 115200
 #define MAX_SENSORS 4
 #define DEBOUNCE_TIME 50
 #define EEPROM_ID 47
@@ -44,7 +57,8 @@
 #define DEFAULT_NUM_SENSORS 1
 #define DEFAULT_MEAS_INTERVAL 3000
 #define MAX_INTERVAL 31000
-enum State_t {DISP_TEMP, SENSOR_SELECT, MEAS_INTERVAL_SELECT, SENSOR_CAL, LOG_SELECT, ERROR};
+#define TIMEOUT_PERIOD 5000
+enum State_t {DISP_TEMP, SENSOR_SELECT, MEAS_INTERVAL_SELECT, SENSOR_CAL, LOG_SELECT, DUMP_LOG, ERROR};
 void measure_temps(float *temp_array, char num_sensors);
 void log_temps(float temp_array, char num_sensors);
 void EEPROM_write_float(int adr, float val);
@@ -52,6 +66,7 @@ float EEPROM_read_float(int adr);
 void init_state_from_eeprom(void);
 void print_settings(void);
 void init_sd_card(void);
+void timeout_display(void);
 
 
 //state variables
@@ -73,6 +88,7 @@ SimpleTimer timer;
 
 //other variables
 byte meas_timer_id;
+byte timeout_id;
 int counter=0;
 char filename[20];
 //EEPROM addresses
@@ -89,7 +105,7 @@ char filename[20];
  */
 void setup() {
   delay(5000);
-  Serial.begin(9600);
+  Serial.begin(BAUD_RATE);
   Serial.println("start initialisation");
 
   init_state_from_eeprom();
@@ -97,7 +113,8 @@ void setup() {
   init_sd_card();
   
   meas_timer_id = timer.setInterval(meas_interval, measure_temps);
-  
+  timeout_id = timer.setTimeout(TIMEOUT_PERIOD, timeout_display);
+
   Serial.println("Initialisation complete");
   disp.temps(temp_array, num_sensors);
 }
@@ -125,6 +142,13 @@ void loop() {
   button_down.poll();
   button_select.poll();
   
+  if(button_up.pushed() || button_down.pushed() || button_select.pushed()){
+    Serial.println("restarting timeout timer");
+    timer.restartTimer(timeout_id);
+    timer.enable(timeout_id);
+  }
+  
+    
   switch (state) {
     case DISP_TEMP:
       if(button_select.pushed()){
@@ -176,6 +200,16 @@ void loop() {
         do_log = !do_log;
         EEPROM.write(adr_do_log, do_log);
         disp.log_selection(do_log);
+      }else if(button_select.pushed()){
+        disp.dump_log();
+        state = DUMP_LOG;
+      }
+      break;
+    case DUMP_LOG:
+      if(button_up.pushed() || button_down.pushed()){
+        dump_log();
+        disp.temps(temp_array, num_sensors);
+        state=DISP_TEMP;
       }else if(button_select.pushed()){
         disp.temps(temp_array, num_sensors);
         state = DISP_TEMP;
@@ -301,9 +335,9 @@ void init_sd_card(){
     }
   }
 
+  String base_str = "logger/temp";
   while(1){
-    String tmp_filename = "logger/temp" + random(999);
-    tmp_filename += ".txt";
+    String tmp_filename = base_str + random(999) + ".txt";
     tmp_filename.toCharArray(filename,20);
     if(SD.exists(filename)){
       Serial.println("Filename already exists:");
@@ -330,4 +364,22 @@ float EEPROM_read_float(int adr){
   for (int i = 0; i < sizeof(value); i++)
     *p++ = EEPROM.read(adr++);
   return value;
+}
+
+
+
+void dump_log(){
+  File f = SD.open(filename);
+  if(f){
+    while (f.available()) {
+      Serial.write(f.read());
+    }
+    f.close();
+  }
+}
+
+
+void timeout_display(){
+  disp.temps(temp_array, num_sensors);
+  state = DISP_TEMP;
 }
