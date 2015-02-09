@@ -1,29 +1,29 @@
 #include "display.h"
-#include <LiquidCrystal.h>
+#include <MyLiquidCrystal.h>
 
-Display::Display(char a, char b, char c, char d, char e, char f) : lcd(a,b,c,d,e,f) {
+Display::Display(byte a, byte b, byte c, byte d, byte e, byte f) : lcd(a,b,c,d,e,f) {
   lcd.begin(16,2);
 }
 
-void Display::temps(float *temps, int no_sensors) {
+void Display::temps(float *temps, byte no_sensors) {
    switch (no_sensors) {
      case 1:
        lcd.clear();
-       lcd.setCursor(0,0);
+       //lcd.setCursor(0,0);
        lcd.print("Temperature: ");
        lcd.setCursor(0,1);
        lcd.print(temps[0],1);
        break;
      case 2:
        lcd.clear();
-       lcd.setCursor(0,0);
+       //lcd.setCursor(0,0);
        lcd.print("Temp1: ");lcd.print(temps[0],1);
        lcd.setCursor(0,1);
        lcd.print("Temp2: ");lcd.print(temps[1],1);
        break;
      case 3:
        lcd.clear();
-       lcd.setCursor(0,0);
+       //lcd.setCursor(0,0);
        lcd.print("T1: ");lcd.print(temps[0],1);
        lcd.setCursor(8,0);
        lcd.print("T2: ");lcd.print(temps[1],1);
@@ -32,7 +32,7 @@ void Display::temps(float *temps, int no_sensors) {
        break;
      case 4:
        lcd.clear();
-       lcd.setCursor(0,0);
+       //lcd.setCursor(0,0);
        lcd.print("T1: ");lcd.print(temps[0],1);
        lcd.setCursor(8,0);
        lcd.print("T2: ");lcd.print(temps[1],1);
@@ -48,9 +48,9 @@ void Display::temps(float *temps, int no_sensors) {
 }
 
 
-void Display::sensor_select(int no_sensors){
+void Display::sensor_select(byte no_sensors){
   lcd.clear();
-  lcd.setCursor(0,0);
+  //lcd.setCursor(0,0);
   lcd.print("Num. sensors");
   lcd.setCursor(0,1);
   lcd.print(no_sensors);
@@ -58,13 +58,13 @@ void Display::sensor_select(int no_sensors){
 
 void Display::meas_interval_select(int meas_interval){
   lcd.clear();
-  lcd.setCursor(0,0);
+  //lcd.setCursor(0,0);
   lcd.print("Meas. interval");
   lcd.setCursor(0,1);
   lcd.print(meas_interval);
 }
 
-
+/*
 void Display::sensor_cal(int sensor_no, double a, double b){
   lcd.clear();
   lcd.setCursor(0,0);
@@ -75,10 +75,11 @@ void Display::sensor_cal(int sensor_no, double a, double b){
   lcd.setCursor(8,1);
   lcd.print("b=");lcd.print(b,2);
 }
+*/
 
-void Display::log_selection(char do_log){
+void Display::log_selection(byte do_log){
   lcd.clear();
-  lcd.setCursor(0,0);
+  //lcd.setCursor(0,0);
   lcd.print("Log data? ");
   if (do_log){  
     lcd.print("yes");
@@ -89,7 +90,7 @@ void Display::log_selection(char do_log){
 
 void Display::error(char *msg){
   lcd.clear();
-  lcd.setCursor(0,0);
+  //lcd.setCursor(0,0);
   lcd.print("error");
   lcd.setCursor(0,1);
   lcd.print(msg);
@@ -97,7 +98,7 @@ void Display::error(char *msg){
 
 void Display::dump_log(){
   lcd.clear();
-  lcd.setCursor(0,0);
+  //lcd.setCursor(0,0);
   lcd.print("Dump log?");
   lcd.setCursor(0,1);
   lcd.print("press up or down");

@@ -6,7 +6,7 @@
 #include <Arduino.h>
 #include "PT100.h"
 
-PT100::PT100(int input_pin){
+PT100::PT100(byte input_pin){
   _input_pin = input_pin;
   pinMode(_input_pin, INPUT);  
 }

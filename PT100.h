@@ -10,7 +10,7 @@
 
 class PT100{
   public:
-    PT100(int input_pin);
+    PT100(byte input_pin);
     void calibrate(float a, float b);
     float get_temperature();
     //float get_temperature_averaged(int n);
@@ -19,7 +19,7 @@ class PT100{
     float get_cal_b();
 
   private:
-    int _input_pin;
+    byte _input_pin;
     float _a;
     float _b;
 };

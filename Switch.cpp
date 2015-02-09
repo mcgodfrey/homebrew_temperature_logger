@@ -46,7 +46,7 @@ _doubleClick       ____________________________________________| |____
 #include "Switch.h"
  
 // level(0)                 
-Switch::Switch(byte _pin, byte PinMode, bool polarity, int debounceDelay):  pin(_pin), polarity(polarity), debounceDelay(debounceDelay) { 
+Switch::Switch(byte _pin, byte PinMode, bool polarity, byte debounceDelay):  pin(_pin), polarity(polarity), debounceDelay(debounceDelay) { 
   pinMode(pin, PinMode); 
   _switchedTime = millis();
   level = digitalRead(pin);
@@ -65,6 +65,12 @@ bool Switch::poll(){
   return _switched = 0;
 }
  
+bool Switch::pushed(){ 
+  return _switched && !(level^polarity); 
+} 
+
+
+/*
 bool Switch::switched(){ 
   return _switched;
 }
@@ -72,12 +78,8 @@ bool Switch::switched(){
 bool Switch::on(){ 
   return !(level^polarity);
 }
- 
-bool Switch::pushed(){ 
-  return _switched && !(level^polarity); 
-} 
- 
+  
 bool Switch::released() { 
   return _switched && (level^polarity); 
 } 
-
+*/

@@ -4,8 +4,8 @@
  * LCD Enable pin to digital pin 6
  * LCD D4 pin to digital pin 5
  * LCD D5 pin to digital pin 4
- * LCD D6 pin to digital pin 3
- * LCD D7 pin to digital pin 2
+ * LCD D6 pin to digital pin 12
+ * LCD D7 pin to digital pin 11
  * LCD R/W pin to ground
  * LCD VSS pin to ground
  * LCD VCC pin to 5V
@@ -19,6 +19,10 @@
  * 50mA max on arduino 3v3 output which I don't think is enough
  * currently using discrete LM1117 3v3 regulator.
  *
+ 
+ I2C (internal pullups)
+ * SDA = D2
+ * SCL = D3
  
  TODO:
  * fix error in meas_interval read and/or write in eeprom
@@ -39,17 +43,21 @@
  * 
  */
 
-#include <LiquidCrystal.h>
+#include <MyLiquidCrystal.h>
 #include <EEPROM.h>
 #include <SD.h>
+#include <Wire.h>
+#include "MyRTC.h"
 #include "display.h"
 #include "PT100.h"
 #include "Switch.h"
-#include "SimpleTimer.h"
+#include "MyTimer.h"
+
+#define DEBUG 0
+
 
 //definitions
-//300, 600, 1200, 2400, 4800, 9600, 14400, 19200, 28800, 38400, 57600, or 115200
-#define BAUD_RATE 115200
+#define BAUD_RATE 9600
 #define MAX_SENSORS 4
 #define DEBOUNCE_TIME 50
 #define EEPROM_ID 47
@@ -59,8 +67,8 @@
 #define MAX_INTERVAL 31000
 #define TIMEOUT_PERIOD 5000
 enum State_t {DISP_TEMP, SENSOR_SELECT, MEAS_INTERVAL_SELECT, SENSOR_CAL, LOG_SELECT, DUMP_LOG, ERROR};
-void measure_temps(float *temp_array, char num_sensors);
-void log_temps(float temp_array, char num_sensors);
+void measure_temps(void);
+void log_temps(void);
 void EEPROM_write_float(int adr, float val);
 float EEPROM_read_float(int adr);
 void init_state_from_eeprom(void);
@@ -82,8 +90,10 @@ Switch button_up(8, INPUT_PULLUP, LOW, DEBOUNCE_TIME);
 Switch button_down(10, INPUT_PULLUP, LOW, DEBOUNCE_TIME);
 Switch button_select(9, INPUT_PULLUP, LOW, DEBOUNCE_TIME);
 PT100 sensors[MAX_SENSORS] = {PT100(0), PT100(0), PT100(0), PT100(0)};
-Display disp(7, 6, 5, 4, 3, 2);
-SimpleTimer timer;
+Display disp(7, 6, 5, 4, 12, 11);
+MyTimer measTimer(10000, measure_temps, false);
+//MyTimer display_timeout(TIMEOUT_PERIOD, timeout_display);
+RTC_DS1307 rtc;
 
 
 //other variables
@@ -106,16 +116,20 @@ char filename[20];
 void setup() {
   delay(5000);
   Serial.begin(BAUD_RATE);
+#if DEBUG
   Serial.println("start initialisation");
-
+#endif
+  
   init_state_from_eeprom();
   print_settings();
   init_sd_card();
   
-  meas_timer_id = timer.setInterval(meas_interval, measure_temps);
-  timeout_id = timer.setTimeout(TIMEOUT_PERIOD, timeout_display);
+  measTimer.setInterval(meas_interval);
+  rtc.begin();
 
+#if DEBUG
   Serial.println("Initialisation complete");
+#endif
   disp.temps(temp_array, num_sensors);
 }
 
@@ -136,16 +150,18 @@ void setup() {
  */
 void loop() {
   
-  timer.run();
+  measTimer.run();
   
   button_up.poll();
   button_down.poll();
   button_select.poll();
   
   if(button_up.pushed() || button_down.pushed() || button_select.pushed()){
+#if DEBUG
     Serial.println("restarting timeout timer");
-    timer.restartTimer(timeout_id);
-    timer.enable(timeout_id);
+#endif
+    //timer.restartTimer(timeout_id);
+    //timer.enable(timeout_id);
   }
   
     
@@ -181,15 +197,13 @@ void loop() {
         EEPROM.write(adr_meas_interval, meas_interval>>8);
         EEPROM.write(adr_meas_interval+1, meas_interval | 0xFF);
         disp.meas_interval_select(meas_interval);
-        timer.deleteTimer(meas_timer_id);
-        meas_timer_id = timer.setInterval(meas_interval, measure_temps);
+        measTimer.setInterval(meas_interval);
       }else if(button_down.pushed()){
         meas_interval = meas_interval > 2000 ? meas_interval-1000 : 1000;
         EEPROM.write(adr_meas_interval, meas_interval>>8);
         EEPROM.write(adr_meas_interval+1, meas_interval | 0xFF);
         disp.meas_interval_select(meas_interval);
-        timer.deleteTimer(meas_timer_id);
-        meas_timer_id = timer.setInterval(meas_interval, measure_temps);
+        measTimer.setInterval(meas_interval);
       }else if(button_select.pushed()){
         disp.log_selection(do_log);
         state=LOG_SELECT;
@@ -255,7 +269,9 @@ void measure_temps(){
 }
 
 void log_temps(){
+  #if DEBUG
   Serial.print("logging temperature to ");Serial.println(filename);
+  #endif
   File f = SD.open(filename, FILE_WRITE);
   if(f) {
     f.print(counter++);
@@ -277,7 +293,9 @@ void log_temps(){
 
 void init_state_from_eeprom(){
   if(EEPROM.read(adr_id) == EEPROM_ID){
-    Serial.println("Found config data in the EEPROM");
+#if DEBUG
+    Serial.println("Found config data in EEPROM");
+#endif
     //Serial.println("loading it in now");
     num_sensors = EEPROM.read(adr_num_sensors);
     do_log = EEPROM.read(adr_do_log);
@@ -288,8 +306,10 @@ void init_state_from_eeprom(){
       sensors[a].calibrate(sens_a, sens_b);
     }
   }else{
+#if DEBUG
     Serial.println("No config data in the EEPROM");
-    Serial.println("I'm writing the default parameters now");
+    Serial.println("Write default parameters now");
+#endif
     EEPROM.write(adr_id, EEPROM_ID);
     num_sensors = DEFAULT_NUM_SENSORS;
     EEPROM.write(adr_num_sensors,num_sensors);
@@ -307,6 +327,7 @@ void init_state_from_eeprom(){
 }
 
 void print_settings(){
+#if DEBUG
   Serial.print("Num sensors: ");Serial.println(num_sensors);
   Serial.print("do log?: ");Serial.println(do_log);
   Serial.print("Measure Interval: ");Serial.println(meas_interval);
@@ -315,40 +336,53 @@ void print_settings(){
     Serial.print(" a = "); Serial.println(sensors[i].get_cal_a());
     Serial.print(" b = "); Serial.println(sensors[i].get_cal_b());
   }
+#endif
 }
 
 
 void init_sd_card(){
   // see if the card is present and can be initialized:
   if (!SD.begin(12)) {
+#if DEBUG
     Serial.println("Card failed, or not present");
+#endif
     return;
   }
 
-  if(!SD.exists("logger")){
-    Serial.println("Didn't find logger directory. Creating it now");
-    if(SD.mkdir("logger")){
+  if(!SD.exists("log")){
+#if DEBUG
+    Serial.println("Didn't find log directory. Creating it now");
+#endif
+    if(SD.mkdir("log")){
+#if DEBUG      
       Serial.println(" Success");
+#endif
     }else{
+#if DEBUG
       Serial.println(" failed!");
-      return;
+#endif
+return;
     }
   }
 
-  String base_str = "logger/temp";
+  String base_str = "log/temp";
   while(1){
     String tmp_filename = base_str + random(999) + ".txt";
     tmp_filename.toCharArray(filename,20);
     if(SD.exists(filename)){
+#if DEBUG      
       Serial.println("Filename already exists:");
       Serial.println("  " + tmp_filename);
+#endif
     }else{
       break;
     }
   }
 
+#if DEBUG
   Serial.println("card initialised.");
   Serial.print("Filename = ");Serial.println(filename);
+#endif
 }
 
 
