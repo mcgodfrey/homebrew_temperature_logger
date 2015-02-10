@@ -1,7 +1,7 @@
 #ifndef DISPLAY_h
 #define DISPLAY_h
 #include <Arduino.h>
-#include "MyLiquidCrystal.h"
+#include "LiquidCrystal.h"
 
 class Display{
   public:

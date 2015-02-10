@@ -1,5 +1,5 @@
 #include "display.h"
-#include <MyLiquidCrystal.h>
+#include <LiquidCrystal.h>
 
 Display::Display(byte a, byte b, byte c, byte d, byte e, byte f) : lcd(a,b,c,d,e,f) {
   lcd.begin(16,2);

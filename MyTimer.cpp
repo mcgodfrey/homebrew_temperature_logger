@@ -22,6 +22,7 @@ MyTimer::MyTimer(long d, timer_callback f, boolean r) {
     callback = f;
     timer_delay = d;
     run_once = r;
+    enabled = false;
 }
 
 void MyTimer::run(){
@@ -52,8 +53,9 @@ void MyTimer::setTimeout(long d){
 	run_once = true;
 }
 
-void MyTimer::restartTimer(){
+void MyTimer::restart(){
     prev_millis = elapsed();
+    enabled = true;
 }
 
 void MyTimer::enable(){

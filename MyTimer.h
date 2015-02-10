@@ -24,7 +24,7 @@ public:
     void setCallback(timer_callback f);
     void setInterval(long d); // call function f every d milliseconds
     void setTimeout(long d); // call function f once after d milliseconds
-    void restartTimer(); 
+    void restart(); 
     void enable(); 
     void disable(); 
 
