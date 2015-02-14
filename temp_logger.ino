@@ -42,12 +42,14 @@
 #include <EEPROM.h>
 #include <SD.h>
 #include <Wire.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 #include "RTClib.h"
 #include "display.h"
-#include "PT100.h"
 #include "Switch.h"
 #include "MyTimer.h"
 #include "EEPROM_writeAnything.h"
+
 
 #define DEBUG 1
 
@@ -58,6 +60,8 @@
 #define TIMEOUT_PERIOD 5000
 #define INTERVAL_INCR 1000
 #define MAX_INTERVAL 31000
+#define ONE_WIRE_BUS 2
+#define TEMPERATURE_PRECISION 9
 //default state
 #define DEFAULT_DO_LOG false
 #define DEFAULT_NUM_SENSORS 1
@@ -94,12 +98,15 @@ int meas_interval;
 Switch button_up(8, INPUT_PULLUP, LOW, DEBOUNCE_TIME);
 Switch button_down(10, INPUT_PULLUP, LOW, DEBOUNCE_TIME);
 Switch button_select(9, INPUT_PULLUP, LOW, DEBOUNCE_TIME);
-PT100 sensors[MAX_SENSORS] = {PT100(0), PT100(0), PT100(0), PT100(0)};
 Display disp(7, 6, 5, 4, 12, 11);
 MyTimer measTimer(10000, measure_temps, false);
 MyTimer display_timeout(TIMEOUT_PERIOD, timeout_display, true);
 RTC_DS1307 rtc;
-
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+DeviceAddress sensor_adr[MAX_SENSORS];
+  
+  
 //other variables
 byte meas_timer_id;
 byte timeout_id;
@@ -116,6 +123,18 @@ void setup() {
   Serial.begin(BAUD_RATE);
   Serial.println("start init");
   Wire.begin();
+  
+  sensors.begin();
+  Serial.print("Locating devices...");
+  Serial.print("Found ");
+  Serial.print(sensors.getDeviceCount(), DEC);
+  Serial.println(" devices.");
+
+  // report parasite power requirements
+  Serial.print("Parasite power is: "); 
+  if (sensors.isParasitePowerMode()) Serial.println("ON");
+  else Serial.println("OFF");
+
   
   init_state_from_eeprom();
   print_settings();
@@ -268,9 +287,9 @@ void measure_temps(){
   char date_str[20];
   calc_date(t, date_str);
   //read all the sensors
-  for(int a=0; a<num_sensors; a++){
-    temp_array[a] = sensors[a].get_temperature();
-  }
+  //for(int a=0; a<num_sensors; a++){
+  //  temp_array[a] = sensors[a].get_temperature();
+  //}
   //update the display
   if(state==DISP_TEMP){
     disp.temps(temp_array, num_sensors);
