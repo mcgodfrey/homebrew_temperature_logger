@@ -18,10 +18,7 @@ public:
   Switch(byte _pin, byte PinMode=INPUT_PULLUP, bool polarity=LOW, byte debounceDelay=50);
   bool poll(); // Returns 1 if switched   
   bool pushed(); // will be refreshed by poll()
-  //bool switched(); // will be refreshed by poll()
-  //bool on(); 
-  //bool released(); // will be refreshed by poll()
- 
+
   unsigned long _switchedTime, pushedTime;
   
 protected:

@@ -6,7 +6,6 @@
  * Author: mromani@ottotecnica.com
  * Copyright (c) 2010 OTTOTECNICA Italy
  *
- *
  */
 
 

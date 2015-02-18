@@ -11,8 +11,6 @@
 
 #include "MyTimer.h"
 
-
-// Select time function:
 static unsigned long elapsed(){ 
 	return millis();
 }

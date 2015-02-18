@@ -19,7 +19,8 @@ void Display::temps(float *temps, byte no_sensors) {
        lcd.setCursor(0,1);
        lcd.print("Temp2: ");lcd.print(temps[1],1);
        break;
-     case 3:
+       /*
+       case 3:
        lcd.clear();
        lcd.print("T1: ");lcd.print(temps[0],1);
        lcd.setCursor(8,0);
@@ -37,18 +38,11 @@ void Display::temps(float *temps, byte no_sensors) {
        lcd.setCursor(8,1);
        lcd.print("T4: ");lcd.print(temps[3],1);
        break;
+       */
      default:
        lcd.clear();
        break;
    }
-}
-
-
-void Display::sensor_select(byte no_sensors){
-  lcd.clear();
-  lcd.print("Num. sensors");
-  lcd.setCursor(0,1);
-  lcd.print(no_sensors);
 }
 
 void Display::meas_interval_select(int meas_interval){
@@ -58,18 +52,6 @@ void Display::meas_interval_select(int meas_interval){
   lcd.print(meas_interval);
 }
 
-/*
-void Display::sensor_cal(int sensor_no, double a, double b){
-  lcd.clear();
-  lcd.print("Sensor ");
-  lcd.print(sensor_no);
-  lcd.setCursor(0,1);
-  lcd.print("a=");lcd.print(a,2);
-  lcd.setCursor(8,1);
-  lcd.print("b=");lcd.print(b,2);
-}
-*/
-
 void Display::log_selection(byte do_log){
   lcd.clear();
   lcd.print("Log data? ");
@@ -78,13 +60,6 @@ void Display::log_selection(byte do_log){
   }else{
     lcd.print("no");
   }
-}
-
-void Display::error(char *msg){
-  lcd.clear();
-  lcd.print("error");
-  lcd.setCursor(0,1);
-  lcd.print(msg);
 }
 
 void Display::dump_log(){
