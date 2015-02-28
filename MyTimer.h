@@ -18,11 +18,11 @@ typedef void (*timer_callback)(void);
 
 class MyTimer {
 public:
-    MyTimer(long d, timer_callback f, boolean r);
+    MyTimer(int d, timer_callback f, boolean r);
     void run(); // this function must be called inside loop()
     void setCallback(timer_callback f);
-    void setInterval(long d); // call function f every d milliseconds
-    void setTimeout(long d); // call function f once after d milliseconds
+    void setInterval(int d); // call function f every d milliseconds
+    void setTimeout(int d); // call function f once after d milliseconds
     void restart(); 
     void enable(); 
     void disable(); 
@@ -30,7 +30,7 @@ public:
 private:
     unsigned long prev_millis; // value returned by the millis() function in the previous run() call
     timer_callback callback;
-    long timer_delay;
+    int timer_delay;
     boolean enabled; // which timers are enabled
     boolean run_once;
 };

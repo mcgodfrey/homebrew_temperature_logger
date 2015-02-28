@@ -15,25 +15,34 @@
  * Down button = D9
  * Select button = D10
  
- * 5v/3v3 level shifter on SPI bus.
- * 50mA max on arduino 3v3 output which I don't think is enough
- * currently using discrete LM1117 3v3 regulator.
- *
- 
+
  I2C (internal pullups)
  * SDA = D2
  * SCL = D3
+ * For RTC
+ 
+ Temperature sensors
+ * Dallas oneWire sensors on pin 13
+ 
+ SPI
+ * For SD card
+ * using hardware MOSI, MISO, SCK pins.
+ * SS input pin not used (I think it is needed internally by the SPI library)
+ * SS output is set to pin 2, but I don't actually use this as I only have 1 device
+ * 5v/3v3 level shifter on SPI bus.
+ * 3v3 comes from LM1117 on SD card board
+ 
  
  TODO:
  * program will hang if dumping a large file over serial. make it do it in the background?
  * lcd backlight and timeout (ie. auto turn on with button press then timeout after ~5 mins)
- * enclosure
  * file format for SD card
  * Switch to new smaller sd library
  * indicator LEDs, eg. sd card inserted, taking measurement
  * allocate temp_array based on number of sensors, rather than defining a MAX_SERNSOR size array at the beginning.
  * add header line to log file with temp sensor unique adr.
  * Maybe save some temp sensor unique adrs. in EEPROM with a human readable name/number for each one.
+ * Add new menu item to print settings
  * 
  */
 
@@ -57,13 +66,14 @@
 #define MAX_SENSORS 2
 #define DEBOUNCE_TIME 50
 #define TIMEOUT_PERIOD 5000
-#define INTERVAL_INCR 1000
-#define MAX_INTERVAL 31000
+#define INTERVAL_INCR 1
+#define MIN_INTERVAL 1
+#define MAX_INTERVAL 255
 #define ONE_WIRE_BUS 13
 #define TEMPERATURE_PRECISION 9
 //default state
 #define DEFAULT_DO_LOG false
-#define DEFAULT_MEAS_INTERVAL 3000
+#define DEFAULT_MEAS_INTERVAL 5
 //EEPROM addresses
 #define EEPROM_ID 47
 #define adr_id 0
@@ -86,7 +96,7 @@ State_t state = DISP_TEMP;
 float temp_array[MAX_SENSORS];
 byte num_sensors;
 boolean do_log;
-int meas_interval;
+byte meas_interval;
 
 //Object setup
 Switch button_up(8, INPUT_PULLUP, LOW, DEBOUNCE_TIME);
@@ -98,7 +108,7 @@ MyTimer display_timeout(TIMEOUT_PERIOD, timeout_display, true);
 RTC_DS1307 rtc;
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
-  
+
 //other variables
 byte meas_timer_id;
 byte timeout_id;
@@ -113,31 +123,27 @@ char filename[16] = "log/temp";
 void setup() {
   delay(5000);
   Serial.begin(BAUD_RATE);
-  //Serial.println("start init");
   Wire.begin();
   
   //Init temperature sensors
   sensors.begin();
   num_sensors = sensors.getDeviceCount();
 
-  init_state_from_eeprom();
-  print_settings();
-  init_sd_card();
-
-  measTimer.setInterval(meas_interval);
-  
   //init RTC
   rtc.begin();
   if (!rtc.isrunning()) {
-    Serial.println("RTC not running");
+    //Serial.println("RTC not running");
   }
-  DateTime current_datetime = rtc.now();
-  char datestr[20];
-  calc_date(current_datetime,datestr);
-  Serial.println(datestr);
-    
-    
-  Serial.println("init complete");
+  
+  //other init
+  init_state_from_eeprom();
+  init_sd_card();
+  measTimer.setInterval(meas_interval);
+
+  //We're done. print all the settings to Serial.
+  //print_settings();
+  
+  //Move to the initial state  
   disp.temps(temp_array, num_sensors);
   measTimer.restart();
 }
@@ -170,8 +176,7 @@ void loop() {
   if(button_up.pushed() || button_down.pushed() || button_select.pushed()){
     display_timeout.restart();
   }
-  
-    
+      
   switch (state) {
     case DISP_TEMP:
       if(button_select.pushed()){
@@ -249,18 +254,16 @@ void measure_temps(){
   calc_date(t, date_str);
   Serial.println(date_str);
   
-  //first check how many sensors there are
-  //if it has changed then i need to decide how to handle this
-  //if not then just loop through them and measure each one, saving to the temp_array
+  //measure temperatures and save to temp_array;
+  //also print temperatures to serial for debug
   sensors.requestTemperatures();
   for(int i=0;i<num_sensors; i++){
     DeviceAddress adr;
     if(sensors.getAddress(adr, i)){
         temp_array[i] = sensors.getTempC(adr);
-        Serial.print("  ");printAddress(adr);Serial.print(" - ");Serial.println(temp_array[i]);
+        //Serial.print("  ");printAddress(adr);Serial.print(" - ");Serial.println(temp_array[i]);
     }
   }
-
   //update the display
   if(state==DISP_TEMP){
     disp.temps(temp_array, num_sensors);
@@ -280,19 +283,15 @@ void log_temps(char *date_str){
   File f = SD.open(filename, FILE_WRITE);
   if(f) {
     f.print(date_str);
-    for(char a=0; a<num_sensors; a++){
+    for(byte a=0; a<num_sensors; a++){
       f.print(",");
       f.print(temp_array[a]);
     }
-    f.println("");
-  }else{
-    return;  
+    f.println(""); 
+    f.close();
   }
-  f.close();
   return;  
 }
-
-
 
 /*
  * Initialises the state and sensor info from EEPROM when it is first turned on
@@ -318,9 +317,17 @@ void init_state_from_eeprom(){
  * Print all sensor/state settings to serial. Mainly for debug
  */
 void print_settings(){
+  //first print a timestamp
+  DateTime current_datetime = rtc.now();
+  char datestr[20];
+  calc_date(current_datetime,datestr);
+  Serial.println(datestr);
+  //now the settings
   Serial.print("Num sens: ");Serial.println(num_sensors);
   Serial.print("do log?: ");Serial.println(do_log);
   Serial.print("Meas Interval: ");Serial.println(meas_interval);
+  Serial.print("log filename: ");Serial.println(filename);
+  //finally the IDs of all the attached temperature sensors
   for(int i=0;i<num_sensors; i++){
     DeviceAddress adr;
     if(sensors.getAddress(adr, i)){
@@ -333,13 +340,12 @@ void print_settings(){
 
 void init_sd_card(){
   // see if the card is present and can be initialized:
-  if (!SD.begin(SD_SS)) {
+  if (!SD.begin(SD_SS)){
     return;
   }
 
   if(!SD.exists("log")){
-    if(SD.mkdir("log")){
-    }else{
+    if(!SD.mkdir("log")){
       do_log=0;
       return;
     }
@@ -348,10 +354,8 @@ void init_sd_card(){
   //generate the filename. format is "log/tmpxxx.txt" where xxx is a 
   //3 digit number which is incremented each time a new measurement  starts.
   //ie. it keeps incrementing the counter until it finds a file which doesn't exist yet
-  int counter = 0;
-  while(1){
-    char tmp[4];
-    num2char(counter++,&filename[8],3);
+  for(int a=0;a<1000;a++){
+    num2char(a,&filename[8],3);
     filename[11] = '.';
     filename[12]='t';
     filename[13]='x';
@@ -361,12 +365,8 @@ void init_sd_card(){
       break;
     }
   }
+  //Save header information to file.
 }
-
-
-
-
-
 
 /*
  * Callback function when the display timeout timer expires
