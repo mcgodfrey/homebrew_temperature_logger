@@ -18,23 +18,23 @@ static unsigned long elapsed(){
 MyTimer::MyTimer(int d, timer_callback f, boolean r) {
   prev_millis =  elapsed();
   callback = f;
-  timer_delay = d;
+  timer_delay = d*1000;
   run_once = r;
   enabled = false;
 }
 
 void MyTimer::run(){
   unsigned long current_millis = elapsed(); // get current time
-    if(current_millis - prev_millis >= timer_delay*1000){
-        prev_millis += timer_delay;     // update time
-        // check if the timer callback has to be executed
-        if(enabled){
-          (*callback)();
-	  if(run_once){
-	    enabled = false;
-          }
-        }
+  if(current_millis - prev_millis >= timer_delay){
+    prev_millis += timer_delay;     // update time
+    // check if the timer callback has to be executed
+    if(enabled){
+      (*callback)();
+      if(run_once){
+        enabled = false;
+      }
     }
+  }
 }
 
 void MyTimer::setCallback(timer_callback f){
@@ -42,12 +42,12 @@ void MyTimer::setCallback(timer_callback f){
 }
 
 void MyTimer::setInterval(int d){
-  timer_delay = d;
+  timer_delay = d*1000;
   run_once = false;
 }
 
 void MyTimer::setTimeout(int d){
-  timer_delay = d;
+  timer_delay = d*1000;
   run_once = true;
 }
 

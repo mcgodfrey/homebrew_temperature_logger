@@ -5,44 +5,13 @@ Display::Display(byte a, byte b, byte c, byte d, byte e, byte f) : lcd(a,b,c,d,e
   lcd.begin(16,2);
 }
 
-void Display::temps(float *temps, byte no_sensors) {
-   switch (no_sensors) {
-     case 1:
-       lcd.clear();
-       lcd.print("Temperature: ");
-       lcd.setCursor(0,1);
-       lcd.print(temps[0],1);
-       break;
-     case 2:
-       lcd.clear();
-       lcd.print("Temp1: ");lcd.print(temps[0],1);
-       lcd.setCursor(0,1);
-       lcd.print("Temp2: ");lcd.print(temps[1],1);
-       break;
-       /*
-       case 3:
-       lcd.clear();
-       lcd.print("T1: ");lcd.print(temps[0],1);
-       lcd.setCursor(8,0);
-       lcd.print("T2: ");lcd.print(temps[1],1);
-       lcd.setCursor(0,1);
-       lcd.print("T3: ");lcd.print(temps[2],1);
-       break;
-     case 4:
-       lcd.clear();
-       lcd.print("T1: ");lcd.print(temps[0],1);
-       lcd.setCursor(8,0);
-       lcd.print("T2: ");lcd.print(temps[1],1);
-       lcd.setCursor(0,1);
-       lcd.print("T3: ");lcd.print(temps[2],1);
-       lcd.setCursor(8,1);
-       lcd.print("T4: ");lcd.print(temps[3],1);
-       break;
-       */
-     default:
-       lcd.clear();
-       break;
-   }
+void Display::temps(float *temps, byte sensor_num) {
+  lcd.clear();
+  lcd.print("Temperature ");
+  lcd.print(sensor_num);
+  lcd.print(":");
+  lcd.setCursor(0,1);
+  lcd.print(temps[sensor_num],1);
 }
 
 void Display::meas_interval_select(int meas_interval){

@@ -30,7 +30,7 @@ public:
 private:
     unsigned long prev_millis; // value returned by the millis() function in the previous run() call
     timer_callback callback;
-    int timer_delay;
+    unsigned long timer_delay;
     boolean enabled; // which timers are enabled
     boolean run_once;
 };
