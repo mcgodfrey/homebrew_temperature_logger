@@ -37,12 +37,11 @@
  * program will hang if dumping a large file over serial. make it do it in the background?
  * lcd backlight and timeout (ie. auto turn on with button press then timeout after ~5 mins)
  * file format for SD card
- * Switch to new smaller sd library
  * indicator LEDs, eg. sd card inserted, taking measurement
  * allocate temp_array based on number of sensors, rather than defining a MAX_SERNSOR size array at the beginning.
  * add header line to log file with temp sensor unique adr.
  * Maybe save some temp sensor unique adrs. in EEPROM with a human readable name/number for each one.
- * Add new menu item to print settings
+ * Change temperature reading to non-blocking so the UI doesn't freeze
  * 
  */
 
@@ -65,22 +64,22 @@
 #define DEBOUNCE_TIME 50
 #define TIMEOUT_PERIOD 5
 #define INTERVAL_INCR 1
-#define MIN_INTERVAL 1
+#define MIN_INTERVAL 5
 #define MAX_INTERVAL 255
 #define ONE_WIRE_BUS 13
 #define TEMPERATURE_PRECISION 9
 //default state
 #define DEFAULT_DO_LOG false
-#define DEFAULT_MEAS_INTERVAL 5
+#define DEFAULT_MEAS_INTERVAL 10
 #define SENSOR_DISPLAY_TIME 10
 
 
 //prototypes
 enum State_t {DISP_TEMP, MEAS_INTERVAL_SELECT, LOG_SELECT, DUMP_LOG, ERROR};
-void measure_temps(void);
 void log_temps(void);
-void print_settings(void);
 void init_sd_card(void);
+//callbacks
+void measure_temps(void);
 void timeout_display(void);
 void next_sensor_display(void);
 
@@ -98,14 +97,12 @@ Switch button_select(9, INPUT_PULLUP, LOW, DEBOUNCE_TIME);
 Display disp(7, 6, 5, 4, 12, 11);
 MyTimer measTimer(DEFAULT_MEAS_INTERVAL, measure_temps, false);
 MyTimer display_timeout(TIMEOUT_PERIOD, timeout_display, true);
-MyTimer sensor_display_change(SENSOR_DISPLAY_TIME, next_sensor_display, false);
+MyTimer sensor_display_timer(SENSOR_DISPLAY_TIME, next_sensor_display, false);
 RTC_DS1307 rtc;
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 
 //other variables
-byte meas_timer_id;
-byte timeout_id;
 char filename[16] = "log/temp";
 byte sensor_display = 0;
 
@@ -135,16 +132,14 @@ void setup() {
   init_sd_card();
   if(num_sensors == 1){
     //if there is only 1 sensor, then we don't need to loop through them to display them
-    sensor_display_change.disable();
+    sensor_display_timer.disable();
   }
 
-  //We're done. print all the settings to Serial.
-  //print_settings();
-  
   //Take an initial temperature reading and move to the initial state
   measure_temps();
   disp.temps(temp_array, sensor_display);
   measTimer.restart();
+  sensor_display_timer.restart();
 }
 
 
@@ -167,7 +162,7 @@ void loop() {
   
   measTimer.run();
   display_timeout.run();
-  sensor_display_change.run();
+  sensor_display_timer.run();
   
   button_up.poll();
   button_down.poll();
@@ -184,9 +179,11 @@ void loop() {
         state = MEAS_INTERVAL_SELECT;
       }else if(button_up.pushed()){
         next_sensor_display();
+        sensor_display_timer.restart();
       }else if(button_down.pushed()){
         sensor_display = sensor_display==0 ? num_sensors-1 : sensor_display-1;
         disp.temps(temp_array, sensor_display);
+        sensor_display_timer.restart();
       }
       break;
     case MEAS_INTERVAL_SELECT:
@@ -294,31 +291,6 @@ void log_temps(char *date_str){
   }
   return;  
 }
-
-/*
- * Print all sensor/state settings to serial. Mainly for debug
- */
-void print_settings(){
-  //first print a timestamp
-  DateTime current_datetime = rtc.now();
-  char datestr[20];
-  calc_date(current_datetime,datestr);
-  Serial.println(datestr);
-  //now the settings
-  Serial.print("Num sens: ");Serial.println(num_sensors);
-  Serial.print("do log?: ");Serial.println(do_log);
-  Serial.print("Meas Interval: ");Serial.println(meas_interval);
-  Serial.print("log filename: ");Serial.println(filename);
-  //finally the IDs of all the attached temperature sensors
-  for(int i=0;i<num_sensors; i++){
-    DeviceAddress adr;
-    if(sensors.getAddress(adr, i)){
-      Serial.print(i);Serial.print(" - adr: ");
-      printAddress(adr);Serial.println("");
-    }
-  }
-}
-
 
 void init_sd_card(){
   // see if the card is present and can be initialized:
