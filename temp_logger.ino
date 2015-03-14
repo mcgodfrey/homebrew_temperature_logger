@@ -36,11 +36,8 @@
  TODO:
  * program will hang if dumping a large file over serial. make it do it in the background?
  * lcd backlight and timeout (ie. auto turn on with button press then timeout after ~5 mins)
- * file format for SD card
  * indicator LEDs, eg. sd card inserted, taking measurement
  * allocate temp_array based on number of sensors, rather than defining a MAX_SERNSOR size array at the beginning.
- * add header line to log file with temp sensor unique adr.
- * Maybe save some temp sensor unique adrs. in EEPROM with a human readable name/number for each one.
  * Change temperature reading to non-blocking so the UI doesn't freeze
  * 
  */
@@ -77,7 +74,7 @@
 //prototypes
 enum State_t {DISP_TEMP, MEAS_INTERVAL_SELECT, LOG_SELECT, DUMP_LOG, ERROR};
 void log_temps(void);
-void init_sd_card(void);
+byte init_sd_card(void);
 //callbacks
 void measure_temps(void);
 void timeout_display(void);
@@ -255,12 +252,22 @@ void measure_temps(){
   
   //measure temperatures and save to temp_array;
   //also print temperatures to serial for debug
+  //note that this part hangs because the temperature read takes ~half a second per sensor
+  //I need to make this non-blocking because the UI hangs
   sensors.requestTemperatures();
   for(int i=0;i<num_sensors; i++){
     DeviceAddress adr;
     if(sensors.getAddress(adr, i)){
-        temp_array[i] = sensors.getTempC(adr);
-        Serial.print("  ");printAddress(adr);Serial.print(" - ");Serial.println(temp_array[i]);
+      temp_array[i] = sensors.getTempC(adr);
+      char name=lookup_probe_name(adr);
+      Serial.print("  ");
+      if(name){
+        Serial.print(name);
+      }else{
+        printAddress(adr);
+      }
+      Serial.print(" - ");
+      Serial.println(temp_array[i]);
     }
   }
   //update the display
@@ -279,8 +286,34 @@ void measure_temps(){
  Note that the global variable "filename" must be initialised
  */
 void log_temps(char *date_str){
+  //if the file doesn't exist yet, then we need to write some header information
+  boolean write_header = false;
+  if(!SD.exists(filename)){
+    write_header=true;
+  }
   File f = SD.open(filename, FILE_WRITE);
   if(f) {
+    if(write_header){
+      f.print("time");
+      for(byte a=0; a<num_sensors; a++){
+        f.print(",");
+        DeviceAddress adr;
+        if(sensors.getAddress(adr, a)){
+          char name = lookup_probe_name(adr);
+          if(name){
+            f.print(name);
+          }else{
+            for (uint8_t i = 0; i < 8; i++){
+              if (adr[i] < 16){
+                f.print("0"); 
+              }
+              f.print(adr[i], HEX);
+            }
+          }
+        }
+      }
+      f.println("");
+    }
     f.print(date_str);
     for(byte a=0; a<num_sensors; a++){
       f.print(",");
@@ -288,20 +321,23 @@ void log_temps(char *date_str){
     }
     f.println(""); 
     f.close();
+  }else{
+    Serial.println("error writing log");
   }
   return;  
 }
 
-void init_sd_card(){
+byte init_sd_card(){
   // see if the card is present and can be initialized:
   if (!SD.begin(SD_SS)){
-    return;
+    Serial.println("couldnt find SD");
+    return(1);
   }
 
   if(!SD.exists("log")){
     if(!SD.mkdir("log")){
       do_log=0;
-      return;
+      return(2);
     }
   }
 
@@ -319,7 +355,8 @@ void init_sd_card(){
       break;
     }
   }
-  //Save header information to file.
+  Serial.print("log filename: ");Serial.print(filename);Serial.println("");
+  return(0);
 }
 
 /*

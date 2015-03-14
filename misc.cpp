@@ -1,4 +1,3 @@
-
 #include "misc.h"
 
 
@@ -71,4 +70,21 @@ void dump_log(char *filename){
     }
     f.close();
   }
+}
+
+
+char lookup_probe_name(DeviceAddress adr){
+  for(byte a=0; a<NUM_KNOWN_SENSORS;a++){
+    boolean match = true;
+     for(byte b=0; b<8; b++){
+       if(adr[b] != known_adrs[a][b]){
+         match = false;
+         continue;
+       }
+     }
+     if(match){
+       return('A'+a);
+     }
+  }
+  return 0;
 }
