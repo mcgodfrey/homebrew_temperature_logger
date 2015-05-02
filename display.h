@@ -7,6 +7,7 @@ class Display{
   public:
     Display(byte a, byte b, byte c, byte d, byte e, byte f);
     void temps(float *temps, byte no_sensors);
+    void all_temps(float *temps, byte num_sensors);
     void meas_interval_select(int meas_interval);
     void log_selection(byte do_log);
     void dump_log(void);

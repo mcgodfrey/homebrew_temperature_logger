@@ -84,7 +84,7 @@
 #define LCD_E 5
 #define LCD_D4 6
 #define LCD_D5 7
-#define LCD_D6 8
+#define LCD_D6 8 
 #define LCD_D7 9
 #define PB_U 10
 #define PB_D 11
@@ -93,6 +93,7 @@
 
 //error codes
 #define ERROR_NONE 0
+#define ERROR_NO_PROBE 40
 #define ERROR_RTC 50
 #define ERROR_NO_SD 55
 #define ERROR_SD_MKDIR 56
@@ -123,7 +124,7 @@ Switch button_select(PB_S, INPUT_PULLUP, LOW, DEBOUNCE_TIME);
 Display disp(LCD_RS, LCD_E, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
 MyTimer measTimer(DEFAULT_MEAS_INTERVAL, measure_temps, false);
 MyTimer display_timeout(TIMEOUT_PERIOD, timeout_display, true);
-MyTimer sensor_display_timer(SENSOR_DISPLAY_TIME, next_sensor_display, false);
+//MyTimer sensor_display_timer(SENSOR_DISPLAY_TIME, next_sensor_display, false);
 RTC_DS1307 rtc;
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
@@ -138,21 +139,24 @@ byte sd_present = 0;
  *
  */
 void setup() {
-  delay(5000);
+  delay(0);
   Serial.begin(BAUD_RATE);
   Wire.begin();
-  Serial.println("hello");
   
   //Init temperature sensors
   sensors.begin();
   num_sensors = sensors.getDeviceCount();
-
+  if(num_sensors == 0){
+    state = ERROR;
+    error_code = ERROR_NO_PROBE;
+    return;
+  }
+  
   //init RTC
   rtc.begin();
   if (!rtc.isrunning()) {
     state = ERROR;
     error_code = ERROR_RTC;
-    Serial.println("RTC not running");
     return;
   }
   
@@ -160,22 +164,19 @@ void setup() {
   do_log = DEFAULT_DO_LOG;
   meas_interval = DEFAULT_MEAS_INTERVAL;
   if(error_code = init_sd_card()){
-    Serial.println("SD card broken");
     sd_present = 0;
   }else{
     sd_present = 1;
   }
   
-  if(num_sensors == 1){
-    //if there is only 1 sensor, then we don't need to loop through them to display them
-    sensor_display_timer.disable();
-  }
+
+  
+
 
   //Take an initial temperature reading and move to the initial state
   measure_temps();
-  disp.temps(temp_array, sensor_display);
+  disp.all_temps(temp_array, num_sensors);
   measTimer.restart();
-  sensor_display_timer.restart();
 }
 
 
@@ -198,7 +199,6 @@ void loop() {
   
   measTimer.run();
   display_timeout.run();
-  sensor_display_timer.run();
   
   button_up.poll();
   button_down.poll();
@@ -213,13 +213,6 @@ void loop() {
       if(button_select.pushed()){
         disp.meas_interval_select(meas_interval);
         state = MEAS_INTERVAL_SELECT;
-      }else if(button_up.pushed()){
-        next_sensor_display();
-        sensor_display_timer.restart();
-      }else if(button_down.pushed()){
-        sensor_display = sensor_display==0 ? num_sensors-1 : sensor_display-1;
-        disp.temps(temp_array, sensor_display);
-        sensor_display_timer.restart();
       }
       break;
     case MEAS_INTERVAL_SELECT:
@@ -236,7 +229,7 @@ void loop() {
           disp.log_selection(do_log);
           state=LOG_SELECT;
         }else{
-          disp.temps(temp_array, sensor_display);
+          disp.all_temps(temp_array, num_sensors);
           state = DISP_TEMP;
         }
       }
@@ -253,10 +246,10 @@ void loop() {
     case DUMP_LOG:
       if(button_up.pushed() || button_down.pushed()){
         dump_log(filename);
-        disp.temps(temp_array, sensor_display);
+        disp.all_temps(temp_array, num_sensors);
         state=DISP_TEMP;
       }else if(button_select.pushed()){
-        disp.temps(temp_array, sensor_display);
+        disp.all_temps(temp_array, num_sensors);
         state = DISP_TEMP;
       }
       break;
@@ -319,7 +312,7 @@ void measure_temps(){
   }
   //update the display
   if(state==DISP_TEMP){
-    disp.temps(temp_array, sensor_display);
+    disp.all_temps(temp_array, num_sensors);
   }
   //save to SD
   if(do_log && sd_present){
@@ -421,21 +414,13 @@ byte init_sd_card(){
 
 
 
-
 /*
  * Callback function when the display timeout timer expires
  */
 void timeout_display(){
-  disp.temps(temp_array, sensor_display);
+  disp.all_temps(temp_array, num_sensors);
   state = DISP_TEMP;
 }
 
 
 
-
-void next_sensor_display(){
-  if(state==DISP_TEMP){
-    sensor_display = (sensor_display+1)%num_sensors;
-    disp.temps(temp_array, sensor_display);
-  }
-}
