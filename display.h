@@ -10,6 +10,7 @@ class Display{
     void meas_interval_select(int meas_interval);
     void log_selection(byte do_log);
     void dump_log(void);
+    void error(byte error_code);
 
   private:
     LiquidCrystal lcd;

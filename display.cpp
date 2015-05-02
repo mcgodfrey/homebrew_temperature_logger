@@ -7,7 +7,7 @@ Display::Display(byte a, byte b, byte c, byte d, byte e, byte f) : lcd(a,b,c,d,e
 
 void Display::temps(float *temps, byte sensor_num) {
   lcd.clear();
-  lcd.print("Temperature ");
+  lcd.print(F("Temperature "));
   lcd.print(sensor_num);
   lcd.print(":");
   lcd.setCursor(0,1);
@@ -16,24 +16,32 @@ void Display::temps(float *temps, byte sensor_num) {
 
 void Display::meas_interval_select(int meas_interval){
   lcd.clear();
-  lcd.print("Meas. interval");
+  lcd.print(F("Meas. interval"));
   lcd.setCursor(0,1);
   lcd.print(meas_interval);
 }
 
 void Display::log_selection(byte do_log){
   lcd.clear();
-  lcd.print("Log data? ");
+  lcd.print(F("Log data? "));
   if (do_log){  
-    lcd.print("yes");
+    lcd.print(F("yes"));
   }else{
-    lcd.print("no");
+    lcd.print(F("no"));
   }
 }
 
 void Display::dump_log(){
   lcd.clear();
-  lcd.print("Dump log?");
+  lcd.print(F("Dump log?"));
   lcd.setCursor(0,1);
-  lcd.print("press up or down");
+  lcd.print(F("press up or down"));
+}
+
+
+void Display::error(byte error_code){
+   lcd.clear();
+   lcd.print(F("ERROR:"));
+   lcd.setCursor(0,1);
+   lcd.print(error_code);
 }

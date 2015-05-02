@@ -25,7 +25,7 @@ protected:
   const byte pin; 
   const byte debounceDelay;
   const bool polarity;
-  bool level, _switched,; 
+  bool level, _switched; 
 };
  
 #endif

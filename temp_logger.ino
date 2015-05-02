@@ -1,19 +1,19 @@
 /*
    LCD circuit:
- * LCD RS pin to digital pin 7
- * LCD Enable pin to digital pin 6
- * LCD D4 pin to digital pin 5
- * LCD D5 pin to digital pin 4
- * LCD D6 pin to digital pin 12
- * LCD D7 pin to digital pin 11
+ * LCD RS pin to digital pin 4
+ * LCD Enable pin to digital pin 5
+ * LCD D4 pin to digital pin 6
+ * LCD D5 pin to digital pin 7
+ * LCD D6 pin to digital pin 8
+ * LCD D7 pin to digital pin 9
  * LCD R/W pin to ground
  * LCD VSS pin to ground
  * LCD VCC pin to 5V
 
   Pushbuttons connected to gnd and with internal pullups enabled
- * Up button = D8
- * Down button = D9
- * Select button = D10
+ * Up button = D10
+ * Down button = D11
+ * Select button = D12
  
 
  I2C (internal pullups)
@@ -32,6 +32,11 @@
  * 5v/3v3 level shifter on SPI bus.
  * 3v3 comes from LM1117 on SD card board
  
+ * To program pro-mini
+ green -> RX
+ white -> TX
+ hit reset button just as it starts uploading
+ 
  
  TODO:
  * program will hang if dumping a large file over serial. make it do it in the background?
@@ -40,10 +45,16 @@
  * allocate temp_array based on number of sensors, rather than defining a MAX_SERNSOR size array at the beginning.
  * Change temperature reading to non-blocking so the UI doesn't freeze
  * 
+ * ERROR CODES:
+ * 
+ * 
+ * 
+ * 
  */
 
 #include <LiquidCrystal.h>
 #include <SD.h>
+#include <SPI.h>
 #include <Wire.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -63,17 +74,35 @@
 #define INTERVAL_INCR 1
 #define MIN_INTERVAL 5
 #define MAX_INTERVAL 255
-#define ONE_WIRE_BUS 13
 #define TEMPERATURE_PRECISION 9
 //default state
 #define DEFAULT_DO_LOG false
 #define DEFAULT_MEAS_INTERVAL 10
 #define SENSOR_DISPLAY_TIME 10
+//pins
+#define LCD_RS 4
+#define LCD_E 5
+#define LCD_D4 6
+#define LCD_D5 7
+#define LCD_D6 8
+#define LCD_D7 9
+#define PB_U 10
+#define PB_D 11
+#define PB_S 12
+#define ONE_WIRE_BUS 13
+
+//error codes
+#define ERROR_NONE 0
+#define ERROR_RTC 50
+#define ERROR_NO_SD 55
+#define ERROR_SD_MKDIR 56
+#define ERROR_LOGGING 58
+#define ERROR_UNKNOWN_STATE 60
 
 
 //prototypes
 enum State_t {DISP_TEMP, MEAS_INTERVAL_SELECT, LOG_SELECT, DUMP_LOG, ERROR};
-void log_temps(void);
+byte log_temps(void);
 byte init_sd_card(void);
 //callbacks
 void measure_temps(void);
@@ -88,10 +117,10 @@ boolean do_log;
 byte meas_interval;
 
 //Object setup
-Switch button_up(8, INPUT_PULLUP, LOW, DEBOUNCE_TIME);
-Switch button_down(10, INPUT_PULLUP, LOW, DEBOUNCE_TIME);
-Switch button_select(9, INPUT_PULLUP, LOW, DEBOUNCE_TIME);
-Display disp(7, 6, 5, 4, 12, 11);
+Switch button_up(PB_U, INPUT_PULLUP, LOW, DEBOUNCE_TIME);
+Switch button_down(PB_D, INPUT_PULLUP, LOW, DEBOUNCE_TIME);
+Switch button_select(PB_S, INPUT_PULLUP, LOW, DEBOUNCE_TIME);
+Display disp(LCD_RS, LCD_E, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
 MyTimer measTimer(DEFAULT_MEAS_INTERVAL, measure_temps, false);
 MyTimer display_timeout(TIMEOUT_PERIOD, timeout_display, true);
 MyTimer sensor_display_timer(SENSOR_DISPLAY_TIME, next_sensor_display, false);
@@ -102,8 +131,8 @@ DallasTemperature sensors(&oneWire);
 //other variables
 char filename[16] = "log/temp";
 byte sensor_display = 0;
-
-
+byte error_code = ERROR_NONE;
+byte sd_present = 0;
 
 /*
  *
@@ -112,6 +141,7 @@ void setup() {
   delay(5000);
   Serial.begin(BAUD_RATE);
   Wire.begin();
+  Serial.println("hello");
   
   //Init temperature sensors
   sensors.begin();
@@ -120,13 +150,22 @@ void setup() {
   //init RTC
   rtc.begin();
   if (!rtc.isrunning()) {
-    //Serial.println("RTC not running");
+    state = ERROR;
+    error_code = ERROR_RTC;
+    Serial.println("RTC not running");
+    return;
   }
   
   //other init
   do_log = DEFAULT_DO_LOG;
   meas_interval = DEFAULT_MEAS_INTERVAL;
-  init_sd_card();
+  if(error_code = init_sd_card()){
+    Serial.println("SD card broken");
+    sd_present = 0;
+  }else{
+    sd_present = 1;
+  }
+  
   if(num_sensors == 1){
     //if there is only 1 sensor, then we don't need to loop through them to display them
     sensor_display_timer.disable();
@@ -193,8 +232,13 @@ void loop() {
         disp.meas_interval_select(meas_interval);
         measTimer.setInterval(meas_interval);
       }else if(button_select.pushed()){
-        disp.log_selection(do_log);
-        state=LOG_SELECT;
+        if(sd_present){
+          disp.log_selection(do_log);
+          state=LOG_SELECT;
+        }else{
+          disp.temps(temp_array, sensor_display);
+          state = DISP_TEMP;
+        }
       }
       break;
     case LOG_SELECT:
@@ -217,9 +261,12 @@ void loop() {
       }
       break;
     case ERROR:
+      disp.error(error_code);
+      while(1);
       break;
     default:
       state = ERROR;
+      error_code = ERROR_UNKNOWN_STATE;
       break;
   }
 }
@@ -275,17 +322,23 @@ void measure_temps(){
     disp.temps(temp_array, sensor_display);
   }
   //save to SD
-  if(do_log){
-    log_temps(date_str);
+  if(do_log && sd_present){
+    if(error_code = log_temps(date_str)){
+      state = ERROR;
+    }
   }
   return;  
 }
+
+
+
+
 
 /*
  * Logs current temperature data to SD card.
  Note that the global variable "filename" must be initialised
  */
-void log_temps(char *date_str){
+byte log_temps(char *date_str){
   //if the file doesn't exist yet, then we need to write some header information
   boolean write_header = false;
   if(!SD.exists(filename)){
@@ -293,6 +346,7 @@ void log_temps(char *date_str){
   }
   File f = SD.open(filename, FILE_WRITE);
   if(f) {
+    //First check if we need to write header info to the file (if this is the first entry in the log)
     if(write_header){
       f.print("time");
       for(byte a=0; a<num_sensors; a++){
@@ -303,6 +357,7 @@ void log_temps(char *date_str){
           if(name){
             f.print(name);
           }else{
+            //If I don't know the unique adr for this sensor, then just save the adr
             for (uint8_t i = 0; i < 8; i++){
               if (adr[i] < 16){
                 f.print("0"); 
@@ -314,6 +369,8 @@ void log_temps(char *date_str){
       }
       f.println("");
     }
+    
+    //Now save the actual temp data
     f.print(date_str);
     for(byte a=0; a<num_sensors; a++){
       f.print(",");
@@ -322,22 +379,25 @@ void log_temps(char *date_str){
     f.println(""); 
     f.close();
   }else{
-    Serial.println("error writing log");
+    state=ERROR;
+    return(ERROR_LOGGING);
   }
-  return;  
+  return(ERROR_NONE);  
 }
+
+
+
 
 byte init_sd_card(){
   // see if the card is present and can be initialized:
   if (!SD.begin(SD_SS)){
-    Serial.println("couldnt find SD");
-    return(1);
+    return(ERROR_NO_SD);
   }
 
   if(!SD.exists("log")){
     if(!SD.mkdir("log")){
       do_log=0;
-      return(2);
+      return(ERROR_SD_MKDIR);
     }
   }
 
@@ -355,9 +415,12 @@ byte init_sd_card(){
       break;
     }
   }
-  Serial.print("log filename: ");Serial.print(filename);Serial.println("");
-  return(0);
+  Serial.print(F("log filename: "));Serial.print(filename);Serial.println("");
+  return(ERROR_NONE);
 }
+
+
+
 
 /*
  * Callback function when the display timeout timer expires
@@ -366,6 +429,9 @@ void timeout_display(){
   disp.temps(temp_array, sensor_display);
   state = DISP_TEMP;
 }
+
+
+
 
 void next_sensor_display(){
   if(state==DISP_TEMP){

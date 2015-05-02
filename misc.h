@@ -16,6 +16,4 @@ void dump_log(char *filename);
 char lookup_probe_name(DeviceAddress adr);
 
 
-
-
 #endif
