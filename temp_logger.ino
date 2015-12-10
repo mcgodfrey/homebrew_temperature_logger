@@ -87,8 +87,8 @@
 #define LCD_D6 8 
 #define LCD_D7 9
 #define PB_U 10
-#define PB_D 11
-#define PB_S 12
+#define PB_D 12
+#define PB_S 11
 #define ONE_WIRE_BUS 13
 
 //error codes
