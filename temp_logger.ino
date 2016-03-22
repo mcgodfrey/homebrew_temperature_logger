@@ -169,10 +169,6 @@ void setup() {
     sd_present = 1;
   }
   
-
-  
-
-
   //Take an initial temperature reading and move to the initial state
   measure_temps();
   disp.all_temps(temp_array, num_sensors);
@@ -197,26 +193,32 @@ void setup() {
  */
 void loop() {
   
+  //poll the timers
   measTimer.run();
   display_timeout.run();
+  //if either one has expired then its callback will automatically run.
   
+  //poll the buttons
   button_up.poll();
   button_down.poll();
   button_select.poll();
   
+  //reset the display timeout timer if a button was pressed
   if(button_up.pushed() || button_down.pushed() || button_select.pushed()){
     display_timeout.restart();
   }
-      
+ 
+  //Main state machine for UI
   switch (state) {
     case DISP_TEMP:
       if(button_select.pushed()){
+		  //move to the next state
         disp.meas_interval_select(meas_interval);
         state = MEAS_INTERVAL_SELECT;
       }
       break;
     case MEAS_INTERVAL_SELECT:
-      if(button_up.pushed() && meas_interval < MAX_INTERVAL){
+      if(button_up.pushed()){
         meas_interval = meas_interval < MAX_INTERVAL-INTERVAL_INCR ? meas_interval+INTERVAL_INCR : MAX_INTERVAL;
         disp.meas_interval_select(meas_interval);
         measTimer.setInterval(meas_interval);
@@ -225,6 +227,7 @@ void loop() {
         disp.meas_interval_select(meas_interval);
         measTimer.setInterval(meas_interval);
       }else if(button_select.pushed()){
+        //move to the next state
         if(sd_present){
           disp.log_selection(do_log);
           state=LOG_SELECT;
@@ -239,6 +242,7 @@ void loop() {
         do_log = !do_log;
         disp.log_selection(do_log);
       }else if(button_select.pushed()){
+        //move to the next state
         disp.dump_log();
         state = DUMP_LOG;
       }
@@ -249,6 +253,7 @@ void loop() {
         disp.all_temps(temp_array, num_sensors);
         state=DISP_TEMP;
       }else if(button_select.pushed()){
+        //move to the next state
         disp.all_temps(temp_array, num_sensors);
         state = DISP_TEMP;
       }
@@ -380,7 +385,10 @@ byte log_temps(char *date_str){
 
 
 
-
+/*
+  Opens comms with the SD card
+  
+*/
 byte init_sd_card(){
   // see if the card is present and can be initialized:
   if (!SD.begin(SD_SS)){
