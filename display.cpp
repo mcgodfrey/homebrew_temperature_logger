@@ -14,13 +14,14 @@ void Display::temps(float *temps, byte sensor_num) {
   lcd.print(temps[sensor_num],1);
 }
 
-void Display::all_temps(float *temps, byte num_sensors) {
+void Display::all_temps(float *temps, char probe_names[MAX_SENSORS][PROBE_NAME_LEN], byte num_sensors) {
   lcd.clear();
   byte rows[4] = {0,0,1,1};
   byte cols[4] = {0,8,0,8};
   for(byte a=0;a<num_sensors;a++){
-    lcd.setCursor(cols[a],rows[a]);
-    lcd.print("T");lcd.print(a+1);lcd.print("=");
+    lcd.setCursor(a*5,0);
+    lcd.print(probe_names[a]);
+    lcd.setCursor(a*5,1);
     lcd.print(temps[a],1);
   }
 }

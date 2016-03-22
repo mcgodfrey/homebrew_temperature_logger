@@ -18,7 +18,7 @@ typedef void (*timer_callback)(void);
 
 class MyTimer {
 public:
-    MyTimer(int d, timer_callback f, boolean r);
+    MyTimer(int d, timer_callback f, boolean r, boolean ms);
     void run(); // this function must be called inside loop()
     void setCallback(timer_callback f);
     void setInterval(int d); // call function f every d milliseconds
@@ -35,4 +35,4 @@ private:
     boolean run_once;
 };
 
-#endif
+#endif //MYTIMER_H

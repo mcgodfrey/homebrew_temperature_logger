@@ -28,4 +28,4 @@ protected:
   bool level, _switched; 
 };
  
-#endif
+#endif //SWITCH_H

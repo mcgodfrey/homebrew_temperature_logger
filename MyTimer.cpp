@@ -15,10 +15,14 @@ static unsigned long elapsed(){
   return millis();
 }
 
-MyTimer::MyTimer(int d, timer_callback f, boolean r) {
+MyTimer::MyTimer(int d, timer_callback f, boolean r, boolean ms) {
   prev_millis =  elapsed();
   callback = f;
-  timer_delay = d*1000;
+  if (ms){
+    timer_delay = d;
+  }else {
+    timer_delay = d*1000;
+  }
   run_once = r;
   enabled = false;
 }

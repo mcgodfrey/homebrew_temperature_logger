@@ -73,11 +73,11 @@ void dump_log(char *filename){
 }
 
 
-char lookup_probe_name(DeviceAddress adr){
+char lookup_probe_name(DeviceAddress addr){
   for(byte a=0; a<NUM_KNOWN_SENSORS;a++){
     boolean match = true;
      for(byte b=0; b<8; b++){
-       if(adr[b] != known_adrs[a][b]){
+       if(addr[b] != known_addrs[a][b]){
          match = false;
          continue;
        }
@@ -88,3 +88,31 @@ char lookup_probe_name(DeviceAddress adr){
   }
   return 0;
 }
+
+void get_probe_name(DeviceAddress addr, char* buff) {
+  boolean match;
+  byte a;
+  for(a=0; a<NUM_KNOWN_SENSORS;a++){
+    match = true;
+    for(byte b=0; b<8; b++){
+      if(addr[b] != known_addrs[a][b]){
+        match = false;
+        continue;
+      }
+    }
+    if (match){
+      break;
+    }
+  }
+  if (match){
+    for(byte b=0; b<PROBE_NAME_LEN; b++){
+      buff[b]=probe_names[a][b];
+    }
+  } else {
+    buff[0]='U';
+    buff[0]='N';
+    buff[0]='K';
+    buff[0]='N';
+  }
+}
+
