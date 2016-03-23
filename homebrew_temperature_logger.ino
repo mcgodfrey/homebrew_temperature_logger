@@ -288,43 +288,18 @@ void conversion_complete(){
 
 /*
  * Logs current temperature data to SD card.
- Note that the global variable "filename" must be initialised
+ * Note that the global variable "filename" must be initialised
+ * File format is:
+ * datestring,sensor0_name,temp0,sensor1_name,temp1,sensor2_name,temp2
+ * datestring,sensor0_name,temp0,sensor1_name,temp1,sensor2_name,temp2
  */
 byte log_temps(char *date_str){
-  //if the file doesn't exist yet, then we need to write some header information
-  boolean write_header = false;
-  if(!SD.exists(filename)){
-    write_header=true;
-  }
   File f = SD.open(filename, FILE_WRITE);
   if(f) {
-    //First check if we need to write header info to the file (if this is the first entry in the log)
-    if(write_header){
-      f.print("time");
-      for(byte a=0; a<num_sensors; a++){
-        f.print(",");
-        DeviceAddress adr;
-        if(sensors.getAddress(adr, a)){
-          char name = lookup_probe_name(adr);
-          if(name){
-            f.print(name);
-          }else{
-            //If I don't know the unique adr for this sensor, then just save the adr
-            for (uint8_t i = 0; i < 8; i++){
-              if (adr[i] < 16){
-                f.print("0"); 
-              }
-              f.print(adr[i], HEX);
-            }
-          }
-        }
-      }
-      f.println("");
-    }
-    
-    //Now save the actual temp data
     f.print(date_str);
     for(byte a=0; a<num_sensors; a++){
+      f.print(",");
+      f.print(probe_name_array[a]);
       f.print(",");
       f.print(temp_array[a]);
     }
