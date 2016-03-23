@@ -1,16 +1,15 @@
 #include "misc.h"
 
 
-
-// function to print a device address
-void printAddress(DeviceAddress deviceAddress){
+/*
+ * Formats and prints an address over serial
+ */
+ void printAddress(DeviceAddress deviceAddress){
   for (uint8_t i = 0; i < 8; i++)  {
     if (deviceAddress[i] < 16) Serial.print("0");
     Serial.print(deviceAddress[i], HEX);
   }
 }
-
-
 
 /*
  * Formats the date in a nice string format
@@ -57,10 +56,9 @@ void num2char(int num, char *buffer, byte n){
   buffer[n]='\0';
 }
 
-
-
 /*
  * Dumps the contents of the current log file over serial
+ * Note that this will badly hang the UI
  */
 void dump_log(char *filename){
   File f = SD.open(filename);
@@ -72,23 +70,12 @@ void dump_log(char *filename){
   }
 }
 
-
-char lookup_probe_name(DeviceAddress addr){
-  for(byte a=0; a<NUM_KNOWN_SENSORS;a++){
-    boolean match = true;
-     for(byte b=0; b<8; b++){
-       if(addr[b] != known_addrs[a][b]){
-         match = false;
-         continue;
-       }
-     }
-     if(match){
-       return('A'+a);
-     }
-  }
-  return 0;
-}
-
+/*
+ * Generates the 4 character string probe name
+ * If it is a known probe, then use the assigned name
+ * Otherwise just return the last 4 hexadeimal digits
+ *   of the (unique) address
+ */
 void get_probe_name(DeviceAddress addr, char* buff) {
   boolean match;
   byte a;
@@ -109,6 +96,9 @@ void get_probe_name(DeviceAddress addr, char* buff) {
       buff[b]=probe_names[a][b];
     }
   } else {
+    //TODO:
+    //This should return the last 4 hex digits in the
+    //device address
     buff[0]='U';
     buff[0]='N';
     buff[0]='K';

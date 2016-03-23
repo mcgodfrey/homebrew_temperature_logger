@@ -11,7 +11,6 @@
  * lcd backlight and timeout (ie. auto turn on with button press then timeout after ~5 mins)
  * indicator LEDs, eg. sd card inserted, taking measurement
  * allocate temp_array based on number of sensors, rather than defining a MAX_SERNSOR size array at the beginning.
- * Change temperature reading to non-blocking so the UI doesn't freeze
  * 
  */
 
@@ -66,7 +65,7 @@ OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 
 //other variables
-char filename[16] = "log/temp";
+char filename[12] = "temp";
 byte sensor_display = 0;
 byte error_code = ERROR_NONE;
 byte sd_present = 0;
@@ -148,7 +147,8 @@ void loop() {
   if(button_up.pushed() || button_down.pushed() || button_select.pushed()){
     display_timeout.restart();
   }
- 
+
+  //****************************************
   //Main state machine for UI
   switch (state) {
     case DISP_TEMP:
@@ -230,6 +230,7 @@ void measure_temps(){
   DateTime t = rtc.now();
   calc_date(t, date_str);
   #else
+  //dummy data if RTC isn't present
   for(int i = 0; i < 19; i++) {
     date_str[i]='X';
   }
@@ -315,8 +316,8 @@ byte log_temps(char *date_str){
 
 
 /*
-  Opens comms with the SD card
-  
+ * Opens comms with the SD card
+ * It generates a new filename and saves this to the gloabal variable
 */
 byte init_sd_card(){
   // see if the card is present and can be initialized:
@@ -324,28 +325,23 @@ byte init_sd_card(){
     return(ERROR_NO_SD);
   }
 
-  if(!SD.exists("log")){
-    if(!SD.mkdir("log")){
-      do_log=0;
-      return(ERROR_SD_MKDIR);
-    }
-  }
-
-  //generate the filename. format is "log/tmpxxx.txt" where xxx is a 
+  //generate the filename. format is "tempxxx.txt" where xxx is a 
   //3 digit number which is incremented each time a new measurement  starts.
   //ie. it keeps incrementing the counter until it finds a file which doesn't exist yet
   for(int a=0;a<1000;a++){
-    num2char(a,&filename[8],3);
-    filename[11] = '.';
-    filename[12]='t';
-    filename[13]='x';
-    filename[14]='t';
-    filename[15]='\0';
+    num2char(a,&filename[4],3);
+    filename[7] = '.';
+    filename[8]='t';
+    filename[9]='x';
+    filename[10]='t';
+    filename[11]='\0';
     if(!SD.exists(filename)){
       break;
     }
   }
-  Serial.print(F("log filename: "));Serial.print(filename);Serial.println("");
+  Serial.print(F("log filename: "));
+  Serial.print(filename);
+  Serial.println("");
   return(ERROR_NONE);
 }
 

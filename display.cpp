@@ -1,19 +1,16 @@
 #include "display.h"
 #include <LiquidCrystal.h>
 
+//constructor
+//This syntax initialises lcd object before the function starts or something
+//I need to look up exactlly why I needed to do it this way.
 Display::Display(byte a, byte b, byte c, byte d, byte e, byte f) : lcd(a,b,c,d,e,f) {
   lcd.begin(16,2);
 }
 
-void Display::temps(float *temps, byte sensor_num) {
-  lcd.clear();
-  lcd.print(F("Temperature "));
-  lcd.print(sensor_num);
-  lcd.print(":");
-  lcd.setCursor(0,1);
-  lcd.print(temps[sensor_num],1);
-}
-
+/*
+ * displays the probe names and tempeartures
+ */
 void Display::all_temps(float *temps, char probe_names[MAX_SENSORS][PROBE_NAME_LEN], byte num_sensors) {
   lcd.clear();
   byte rows[4] = {0,0,1,1};
@@ -26,13 +23,20 @@ void Display::all_temps(float *temps, char probe_names[MAX_SENSORS][PROBE_NAME_L
   }
 }
 
+/*
+ * measurement interval select screen
+ */
 void Display::meas_interval_select(int meas_interval){
   lcd.clear();
+  lcd.setCursor(0,0);  //not necessary? I think lcd.clear() sets the cursor position
   lcd.print(F("Meas. interval"));
   lcd.setCursor(0,1);
   lcd.print(meas_interval);
 }
 
+/*
+ * Log selection (enable) screen
+ */
 void Display::log_selection(byte do_log){
   lcd.clear();
   lcd.print(F("Log data? "));
@@ -43,6 +47,9 @@ void Display::log_selection(byte do_log){
   }
 }
 
+/*
+ * Dump log (over serial) screen
+ */
 void Display::dump_log(){
   lcd.clear();
   lcd.print(F("Dump log?"));
@@ -50,7 +57,9 @@ void Display::dump_log(){
   lcd.print(F("press up or down"));
 }
 
-
+/*
+ * error display screen
+ */
 void Display::error(byte error_code){
    lcd.clear();
    lcd.print(F("ERROR:"));
