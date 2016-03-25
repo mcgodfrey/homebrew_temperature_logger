@@ -35,8 +35,8 @@
 #ifndef DEFS_H
 #define DEFS_H
 
-#define RTC 0
-#define SD_PRESENT 0
+#define RTC 1
+#define SD_PRESENT 1
 
 //pins
 #define LCD_RS 4
@@ -55,7 +55,7 @@
 #define ERROR_NO_PROBE 40
 #define ERROR_RTC 50
 #define ERROR_NO_SD 55
-#define ERROR_SD_MKDIR 56
+#define ERROR_SD_MISC 56
 #define ERROR_LOGGING 58
 #define ERROR_UNKNOWN_STATE 60
 
@@ -65,12 +65,13 @@
 #define MAX_SENSORS 4
 #define PROBE_NAME_LEN 5
 #define DEBOUNCE_TIME 50
-#define TIMEOUT_PERIOD 5
+#define TIMEOUT_PERIOD 10
 #define INTERVAL_INCR 1
 #define MIN_INTERVAL 5
 #define MAX_INTERVAL 255
-#define TEMPERATURE_PRECISION 9
+#define TEMPERATURE_PRECISION 12
 #define CONVERSION_TIME 750 / (1 << (12 - TEMPERATURE_PRECISION))
+//#define CONVERSION_TIME 1000 / (1 << (12 - TEMPERATURE_PRECISION))
 //default state
 #define DEFAULT_DO_LOG false
 #define DEFAULT_MEAS_INTERVAL 10

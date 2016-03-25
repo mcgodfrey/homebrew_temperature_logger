@@ -12,9 +12,9 @@
 }
 
 /*
- * Formats the date in a nice string format
+ * Formats the date/time in a nice string format
  */
-void calc_date(DateTime t, char *buffer){
+void datetime2str(DateTime t, char *buffer){
   num2char(t.year(),buffer,4);
   buffer[4]='/';
   num2char(t.month(),&buffer[5],2);
@@ -27,6 +27,30 @@ void calc_date(DateTime t, char *buffer){
   buffer[16]=':';
   num2char(t.second(),&buffer[17],2);
   buffer[19]='\0';
+}
+
+/*
+ * Formats the date in a nice string format
+ */
+void date2str(DateTime t, char *buffer){
+  num2char(t.year(),buffer,4);
+  buffer[4]='/';
+  num2char(t.month(),&buffer[5],2);
+  buffer[7]='/';
+  num2char(t.day(),&buffer[8],2);
+  buffer[10]='\0';
+}
+
+/*
+ * Formats the time in a nice string format
+ */
+void time2str(DateTime t, char *buffer){
+  num2char(t.hour(),&buffer[0],2);
+  buffer[2]=':';
+  num2char(t.minute(),&buffer[3],2);
+  buffer[5]=':';
+  num2char(t.second(),&buffer[6],2);
+  buffer[8]='\0';
 }
 
 /*
@@ -60,14 +84,18 @@ void num2char(int num, char *buffer, byte n){
  * Dumps the contents of the current log file over serial
  * Note that this will badly hang the UI
  */
-void dump_log(char *filename){
+byte dump_log(char *filename){
+  Serial.print(filename);
   File f = SD.open(filename);
   if(f){
     while (f.available()) {
       Serial.write(f.read());
     }
     f.close();
+  }else{
+    return(ERROR_SD_MISC);
   }
+  return(ERROR_NONE);
 }
 
 /*
@@ -100,9 +128,11 @@ void get_probe_name(DeviceAddress addr, char* buff) {
     //This should return the last 4 hex digits in the
     //device address
     buff[0]='U';
-    buff[0]='N';
-    buff[0]='K';
-    buff[0]='N';
+    buff[1]='N';
+    buff[2]='K';
+    buff[3]='N';
+    buff[4]='\0';
   }
 }
+
 

@@ -11,15 +11,18 @@ Display::Display(byte a, byte b, byte c, byte d, byte e, byte f) : lcd(a,b,c,d,e
 /*
  * displays the probe names and tempeartures
  */
-void Display::all_temps(float *temps, char probe_names[MAX_SENSORS][PROBE_NAME_LEN], byte num_sensors) {
+void Display::all_temps(float *temp_array, char probe_name_array[MAX_SENSORS][PROBE_NAME_LEN], byte num_sensors) {
   lcd.clear();
-  byte rows[4] = {0,0,1,1};
-  byte cols[4] = {0,8,0,8};
-  for(byte a=0;a<num_sensors;a++){
-    lcd.setCursor(a*5,0);
-    lcd.print(probe_names[a]);
-    lcd.setCursor(a*5,1);
-    lcd.print(temps[a],1);
+  if (num_sensors == 0){
+    lcd.setCursor(0,0);
+    lcd.print("no sensors");
+  }else{
+    for(byte a=0;a<num_sensors;a++){
+      lcd.setCursor(a*5,0);
+      lcd.print(probe_name_array[a]);
+      lcd.setCursor(a*5,1);
+      lcd.print(temp_array[a],1);
+    }
   }
 }
 
@@ -29,9 +32,21 @@ void Display::all_temps(float *temps, char probe_names[MAX_SENSORS][PROBE_NAME_L
 void Display::meas_interval_select(int meas_interval){
   lcd.clear();
   lcd.setCursor(0,0);  //not necessary? I think lcd.clear() sets the cursor position
-  lcd.print(F("Meas. interval"));
+  lcd.print("Meas. interval");
   lcd.setCursor(0,1);
   lcd.print(meas_interval);
+}
+
+void Display::disp_time(RTC_DS1307 rtc){
+  lcd.clear();
+  DateTime t = rtc.now();
+  char str[12];
+  date2str(t, str);
+  lcd.setCursor(0,0);
+  lcd.print(str);
+  time2str(t, str);
+  lcd.setCursor(0,1);
+  lcd.print(str);
 }
 
 /*
@@ -39,11 +54,11 @@ void Display::meas_interval_select(int meas_interval){
  */
 void Display::log_selection(byte do_log){
   lcd.clear();
-  lcd.print(F("Log data? "));
+  lcd.print("Log data? ");
   if (do_log){  
-    lcd.print(F("yes"));
+    lcd.print("yes");
   }else{
-    lcd.print(F("no"));
+    lcd.print("no");
   }
 }
 
@@ -52,9 +67,9 @@ void Display::log_selection(byte do_log){
  */
 void Display::dump_log(){
   lcd.clear();
-  lcd.print(F("Dump log?"));
+  lcd.print("Dump log?");
   lcd.setCursor(0,1);
-  lcd.print(F("press up or down"));
+  lcd.print("press up or down");
 }
 
 /*
@@ -62,7 +77,7 @@ void Display::dump_log(){
  */
 void Display::error(byte error_code){
    lcd.clear();
-   lcd.print(F("ERROR:"));
+   lcd.print("ERROR:");
    lcd.setCursor(0,1);
    lcd.print(error_code);
 }

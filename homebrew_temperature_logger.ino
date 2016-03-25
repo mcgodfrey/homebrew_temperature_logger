@@ -30,7 +30,7 @@
 
 
 //prototypes
-enum State_t {DISP_TEMP, MEAS_INTERVAL_SELECT, LOG_SELECT, DUMP_LOG, ERR};
+enum State_t {DISP_TEMP, MEAS_INTERVAL_SELECT, DATETIME, LOG_SELECT, DUMP_LOG, ERR};
 byte log_temps(void);
 byte init_sd_card(void);
 //callbacks
@@ -40,9 +40,10 @@ void timeout_display(void);
 void next_sensor_display(void);
 
 //state variables
-State_t state = DISP_TEMP;
+State_t state;
 float temp_array[MAX_SENSORS];
 char probe_name_array[MAX_SENSORS][PROBE_NAME_LEN];
+DeviceAddress sensor_addresses[MAX_SENSORS];
 byte num_sensors;
 boolean do_log;
 byte meas_interval;
@@ -74,44 +75,36 @@ byte sd_present = 0;
  *
  */
 void setup() {
+  delay(2000);
   Serial.begin(BAUD_RATE);
   Wire.begin();
   
   //Init temperature sensors
   sensors.begin();
   num_sensors = sensors.getDeviceCount();
-  
+    
   //init RTC
-  #if RTC
   rtc.begin();
   if (!rtc.isrunning()) {
     state = ERR;
     error_code = ERROR_RTC;
     return;
   }
-  #endif
-
+  
   //sd init
-  #if SD_PRESENT
   do_log = DEFAULT_DO_LOG;
   if(error_code = init_sd_card()){
     sd_present = 0;
   }else{
     sd_present = 1;
   }
-  #else
-  do_log = false;
-  sd_present = 0;
-  #endif
-  
-  
-  //other init
-  meas_interval = DEFAULT_MEAS_INTERVAL;
   
   
   //Take an initial temperature reading and move to the initial state
+  state = DISP_TEMP;
+  meas_interval = DEFAULT_MEAS_INTERVAL;
   measure_temps();
-  disp.all_temps(temp_array, probe_name_array, num_sensors);
+  delay(CONVERSION_TIME);
   measTimer.restart();
 }
 
@@ -169,13 +162,20 @@ void loop() {
         measTimer.setInterval(meas_interval);
       }else if(button_select.pushed()){
         //move to the next state
+        disp.disp_time(rtc);
+        state=DATETIME;
+       }
+      break;
+    case DATETIME:
+      if(button_select.pushed()){
+        //move to the next state
         if(sd_present){
           disp.log_selection(do_log);
           state=LOG_SELECT;
         }else{
           disp.all_temps(temp_array, probe_name_array, num_sensors);
           state = DISP_TEMP;
-        }
+        }      
       }
       break;
     case LOG_SELECT:
@@ -226,20 +226,16 @@ void loop() {
  */
 void measure_temps(){
   //get the current timestamp
-  #if RTC
   DateTime t = rtc.now();
-  calc_date(t, date_str);
-  #else
-  //dummy data if RTC isn't present
-  for(int i = 0; i < 19; i++) {
-    date_str[i]='X';
-  }
-  date_str[19]=0;
-  #endif
+  datetime2str(t, date_str);
   
   //trigger a temperature measurement
   sensors.begin();
+  sensors.setResolution(TEMPERATURE_PRECISION);
   num_sensors = sensors.getDeviceCount();
+  for(byte i = 0; i < num_sensors; i++){
+    sensors.getAddress(sensor_addresses[i], i);
+  }
   sensors.setWaitForConversion(false);
   sensors.requestTemperatures();
   
@@ -255,32 +251,32 @@ void measure_temps(){
  * This is the callback function for the measurement timer
  */
 void conversion_complete(){
-  Serial.println("");
+  Serial.println(""); Serial.println("");
   Serial.println(date_str);
-  DeviceAddress probeAddr;
-  byte sensor_num=0;
+  
   //Read in the temperatures and print to serial port
+  byte sensor_num = 0;
   for(int i = 0; i<num_sensors; i++){
+    //Serial.print("Looking for ");printAddress(sensor_addresses[i]);Serial.println("");
+    
     //check that the probe is still present
-    if(sensors.getAddress(probeAddr, i)){
-      temp_array[sensor_num] = sensors.getTempC(probeAddr);
-      get_probe_name(probeAddr, probe_name_array[sensor_num]);
+    if(sensors.isConnected(sensor_addresses[i])){
+      temp_array[sensor_num] = sensors.getTempC(sensor_addresses[i]);
+      get_probe_name(sensor_addresses[i], probe_name_array[sensor_num]);
       Serial.print(probe_name_array[sensor_num]); Serial.print(" - ");
       Serial.print(temp_array[sensor_num],1); Serial.println("degC");
       sensor_num++;
     }
   }
   num_sensors = sensor_num;
-  
+
   //update the display
   if(state==DISP_TEMP){
     disp.all_temps(temp_array, probe_name_array, num_sensors);
   }
   //save to SD
   if(do_log && sd_present){
-    if(error_code = log_temps(date_str)){
-      state = ERR;
-    }
+    log_temps(date_str);
   }
   return;  
 }
@@ -308,7 +304,7 @@ byte log_temps(char *date_str){
     f.close();
   }else{
     state=ERR;
-    return(ERROR_LOGGING);
+    error_code = ERROR_LOGGING;
   }
   return(ERROR_NONE);  
 }
@@ -328,7 +324,7 @@ byte init_sd_card(){
   //generate the filename. format is "tempxxx.txt" where xxx is a 
   //3 digit number which is incremented each time a new measurement  starts.
   //ie. it keeps incrementing the counter until it finds a file which doesn't exist yet
-  for(int a=0;a<1000;a++){
+  for(byte a=0;a<255;a++){
     num2char(a,&filename[4],3);
     filename[7] = '.';
     filename[8]='t';
@@ -354,6 +350,7 @@ void timeout_display(){
   disp.all_temps(temp_array, probe_name_array, num_sensors);
   state = DISP_TEMP;
 }
+
 
 
 
